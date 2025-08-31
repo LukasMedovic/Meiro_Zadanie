@@ -1,9 +1,7 @@
 # ShowAds CSV -> API konektor
 
 
-Tento projekt realizuje spracovanie CSV vstupu (aj miliony riadkov), validaciu zaznamov a efektivne odoslanie na ShowAds API s podporou batchovania a JSON logovania. Repo je pripravene tak, aby sa dalo ihned spustit lokalne, v CI a aj v Dockeri.
-
-**Stav:** Inicialny MVP skeleton (sietove volania su zatial stub). Nizsie su detailne postupy, logovanie, testy a troubleshooting.
+Tento projekt realizuje spracovanie CSV vstupu (aj miliony riadkov), validaciu zaznamov a efektivne odoslanie na ShowAds API s podporou batchovania a JSON logovania. Repo je pripravene tak, aby sa dalo ihned spustit lokalne, v CI a aj v Dockeri. Nizsie su detailne postupy, logovanie, testy a troubleshooting.
 
 ---
 
