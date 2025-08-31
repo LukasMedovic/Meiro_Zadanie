@@ -8,7 +8,7 @@ def test_validate_missing_headers_exit2():
     # CSV bez povinnych hlaviciek
     f = io.StringIO()
     w = csv.writer(f)
-    w.writerow(["fullname", "years", "banner"])  # umyselne zle
+    w.writerow(["FullName", "Age", "Banner_id"])  # missing Cookie
     w.writerow(["Alice", "25", "5"])
     with runner.isolated_filesystem():
         with open("bad.csv", "w", encoding="utf-8") as out:

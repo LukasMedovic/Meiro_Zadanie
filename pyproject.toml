@@ -11,3 +11,7 @@ target-version = ["py312"]
 testpaths = ["tests"]
 addopts = "-q -ra --cov=showads_client --cov-report=term-missing --cov-fail-under=85"
 
+
+[tool.mypy]
+strict = true
+files = ["src"]

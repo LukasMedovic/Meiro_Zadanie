@@ -1,9 +1,10 @@
-from typing import Iterable, Iterator, List, TypeVar
+from collections.abc import Iterable, Iterator
+from typing import TypeVar
 
 T = TypeVar("T")
 
 
-def chunked(items: Iterable[T], size: int) -> Iterator[List[T]]:
+def chunked(items: Iterable[T], size: int) -> Iterator[list[T]]:
     """Rozdeli vstupny iterovatelny zdroj na batch-e velkosti `size`.
 
     Vlastnosti:
@@ -18,7 +19,7 @@ def chunked(items: Iterable[T], size: int) -> Iterator[List[T]]:
     if size <= 0:
         raise ValueError("size must be > 0")
 
-    batch: List[T] = []
+    batch: list[T] = []
     for it in items:
         batch.append(it)
         if len(batch) >= size:

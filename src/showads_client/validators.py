@@ -1,43 +1,86 @@
-"""Validatory pre meno, vek a banner_id
+"""Validačné nástroje vyhadzujúce špecifické výnimky."""
 
-Poznamky:
-- isalpha() pokryva unicode pismena
-- Zamer je konzervativny: povolujeme len pismena, medzery a hyphen '-'.
-"""
+from __future__ import annotations
 
 from typing import Any
+import uuid
 
 
-def is_valid_name(name: str) -> bool:
-    """Overi, ci je meno platne.
+class ValidationError(Exception):
+    """Základná trieda pre validačné chyby."""
 
-    Pravidla:
-      - vstup je string
-      - po orezani bielych znakov nie je prazdny
-      - obsahuje len pismena, medzery alebo hyphen '-'
-    """
+
+class InvalidNameError(ValidationError):
+    """Vstup ``name`` neprešiel validáciou."""
+
+
+class InvalidAgeError(ValidationError):
+    """Vstup ``age`` neprešiel validáciou."""
+
+
+class InvalidBannerIdError(ValidationError):
+    """Vstup ``banner_id`` neprešiel validáciou."""
+
+
+class InvalidCookieError(ValidationError):
+    """Vstup ``cookie`` neprešiel validáciou."""
+
+
+def validate_name(name: Any) -> str:
+    """Vráti orezaný ``name`` alebo vyhodí :class:`InvalidNameError`."""
+
     if not isinstance(name, str):
-        return False
+        raise InvalidNameError("name must be a string")
     s = name.strip()
     if not s:
-        return False
-    # Konzervativne: unicode pismena, medzery, hyphen
-    return all(ch.isalpha() or ch.isspace() or ch == "-" for ch in s)
+        raise InvalidNameError("name cannot be empty")
+    if not all(ch.isalpha() or ch.isspace() for ch in s):
+        raise InvalidNameError("name contains invalid characters")
+    return s
 
 
-def is_valid_age(age: Any, min_age: int, max_age: int) -> bool:
-    """Overi vek voci intervalu [min_age, max_age]."""
+def validate_age(age: Any, min_age: int, max_age: int) -> int:
+    """Vráti celé číslo ``age`` v rozsahu ``[min_age, max_age]`` alebo vyhodí výnimku."""
+
     try:
-        a = int(age)
-    except Exception:
-        return False
-    return min_age <= a <= max_age
+        a = int(str(age).strip())
+    except Exception as exc:  # pragma: no cover - defensive
+        raise InvalidAgeError("age must be an integer") from exc
+    if not (min_age <= a <= max_age):
+        raise InvalidAgeError(f"age {a} out of range {min_age}-{max_age}")
+    return a
 
 
-def is_valid_banner_id(banner_id: Any) -> bool:
-    """Overi banner_id, musi byt integer v rozsahu 0..99 (vratane)."""
+def validate_banner_id(banner_id: Any) -> int:
+    """Vráti celé číslo ``banner_id`` v rozsahu 0..99 alebo vyhodí výnimku."""
+
     try:
-        b = int(banner_id)
-    except Exception:
-        return False
-    return 0 <= b <= 99
+        b = int(str(banner_id).strip())
+    except Exception as exc:  # pragma: no cover - defensive
+        raise InvalidBannerIdError("banner_id must be an integer") from exc
+    if not (0 <= b <= 99):
+        raise InvalidBannerIdError("banner_id out of range 0-99")
+    return b
+
+
+def validate_cookie(cookie: Any) -> str:
+    """Vráti ``cookie`` ak ide o platný reťazec UUID, inak vyhodí výnimku."""
+
+    try:
+        uuid.UUID(str(cookie))
+    except Exception as exc:  # pragma: no cover - defensive
+        raise InvalidCookieError("cookie must be a valid UUID") from exc
+    return str(cookie)
+
+
+__all__ = [
+    "ValidationError",
+    "InvalidNameError",
+    "InvalidAgeError",
+    "InvalidBannerIdError",
+    "InvalidCookieError",
+    "validate_name",
+    "validate_age",
+    "validate_banner_id",
+    "validate_cookie",
+]

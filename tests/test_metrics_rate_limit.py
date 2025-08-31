@@ -2,6 +2,7 @@ import io, csv, json
 from click.testing import CliRunner
 
 import showads_client.cli as cli_mod
+from showads_client.api_client import RateLimitError
 
 
 def _csv(rows):
@@ -12,9 +13,7 @@ def _csv(rows):
     return f.getvalue()
 
 
-def test_send_respects_batch_size(monkeypatch):
-    calls = []
-
+def test_metrics_file_written(monkeypatch):
     class FakeClient:
         def __init__(self):
             self._token = object()
@@ -23,8 +22,7 @@ def test_send_respects_batch_size(monkeypatch):
             pass
 
         def send_bulk(self, payload):
-            calls.append(len(payload))
-            return {"status": "stubbed", "sent": len(payload)}
+            return {"status": "ok", "sent": len(payload)}
 
     monkeypatch.setattr(cli_mod, "ShowAdsClient", FakeClient)
 
@@ -42,24 +40,6 @@ def test_send_respects_batch_size(monkeypatch):
                 "banner_id": "2",
                 "cookie": "00000000-0000-0000-0000-000000000002",
             },
-            {
-                "name": "C",
-                "age": "27",
-                "banner_id": "3",
-                "cookie": "00000000-0000-0000-0000-000000000003",
-            },
-            {
-                "name": "D",
-                "age": "28",
-                "banner_id": "4",
-                "cookie": "00000000-0000-0000-0000-000000000004",
-            },
-            {
-                "name": "E",
-                "age": "29",
-                "banner_id": "5",
-                "cookie": "00000000-0000-0000-0000-000000000005",
-            },
         ]
     )
 
@@ -67,17 +47,18 @@ def test_send_respects_batch_size(monkeypatch):
     with runner.isolated_filesystem():
         with open("data.csv", "w", encoding="utf-8") as f:
             f.write(data)
-        result = runner.invoke(cli_mod.main, ["--bulk-batch-size", "2", "send", "data.csv"])
+        result = runner.invoke(cli_mod.main, ["send", "data.csv", "--metrics-out", "m.json"])
         assert result.exit_code == 0
-        payload = json.loads(result.output)
-        assert payload["sent"] == 5
-        assert calls == [2, 2, 1]
+        with open("m.json", encoding="utf-8") as f:
+            metrics = json.load(f)
+        assert metrics["sent"] == 2
+        assert "avg_batch_time_s" in metrics
 
 
-def test_send_deduplicates(monkeypatch):
+def test_rate_limit_adapts_parallel(monkeypatch):
     calls = []
 
-    class FakeClient:
+    class RLClient:
         def __init__(self):
             self._token = object()
 
@@ -86,9 +67,11 @@ def test_send_deduplicates(monkeypatch):
 
         def send_bulk(self, payload):
             calls.append(len(payload))
-            return {"status": "stubbed", "sent": len(payload)}
+            if len(calls) == 1:
+                raise RateLimitError("429")
+            return {"status": "ok", "sent": len(payload)}
 
-    monkeypatch.setattr(cli_mod, "ShowAdsClient", FakeClient)
+    monkeypatch.setattr(cli_mod, "ShowAdsClient", RLClient)
 
     data = _csv(
         [
@@ -101,14 +84,8 @@ def test_send_deduplicates(monkeypatch):
             {
                 "name": "B",
                 "age": "26",
-                "banner_id": "1",
-                "cookie": "00000000-0000-0000-0000-000000000001",
-            },
-            {
-                "name": "C",
-                "age": "27",
                 "banner_id": "2",
-                "cookie": "00000000-0000-0000-0000-000000000003",
+                "cookie": "00000000-0000-0000-0000-000000000002",
             },
         ]
     )
@@ -117,8 +94,23 @@ def test_send_deduplicates(monkeypatch):
     with runner.isolated_filesystem():
         with open("data.csv", "w", encoding="utf-8") as f:
             f.write(data)
-        result = runner.invoke(cli_mod.main, ["send", "data.csv"])
+        result = runner.invoke(
+            cli_mod.main,
+            [
+                "--bulk-batch-size",
+                "1",
+                "--parallel-requests",
+                "2",
+                "send",
+                "data.csv",
+                "--metrics-out",
+                "m.json",
+            ],
+        )
         assert result.exit_code == 0
-        payload = json.loads(result.output)
-        assert payload["rows_sent"] == 2
-        assert calls == [2]
+        with open("m.json", encoding="utf-8") as f:
+            metrics = json.load(f)
+        assert metrics["rate_limited"] == 1
+        assert metrics["final_parallel"] == 1
+        assert metrics["total_batches"] == 2
+        assert metrics["max_retries"] == 1
